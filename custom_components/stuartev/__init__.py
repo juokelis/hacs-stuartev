@@ -1,10 +1,12 @@
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from .auth import StuartAuth
+
 from .api import StuartEnergyClient
-from .coordinator import StuartEnergyCoordinator
+from .auth import StuartAuth
 from .const import DOMAIN
+from .coordinator import StuartEnergyCoordinator
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     data = entry.data
@@ -35,6 +37,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     )
 
     return True
+
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     await hass.config_entries.async_forward_entry_unload(entry, "sensor")

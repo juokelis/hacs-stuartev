@@ -1,9 +1,11 @@
 import voluptuous as vol
+from aiohttp import ClientSession
 from homeassistant import config_entries
 from homeassistant.core import callback
-from aiohttp import ClientSession
-from .const import DOMAIN
+
 from .auth import StuartAuth
+from .const import DOMAIN
+
 
 class StuartEVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
