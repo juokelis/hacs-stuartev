@@ -18,15 +18,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     session = async_get_clientsession(hass)
     client = StuartEnergyClient(session, email, password, site_id)
-    coordinator = StuartEnergyCoordinator(hass, client, scan_interval=scan_interval)
+    _coordinator = StuartEnergyCoordinator(hass, client, scan_interval=scan_interval)
 
     # Import historical data on initial setup
-    await coordinator.import_historical_data(history_days)
+    await _coordinator.import_historical_data(history_days)
 
-    await coordinator.async_config_entry_first_refresh()
+    await _coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
-        "coordinator": coordinator,
+        "coordinator": _coordinator,
         "client": client,
     }
 
