@@ -1,6 +1,8 @@
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
 from .const import DOMAIN
+
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
@@ -9,6 +11,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         StuartCO2Sensor(coordinator),
     ]
     async_add_entities(sensors)
+
 
 class StuartEnergySensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator):
@@ -30,6 +33,7 @@ class StuartEnergySensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self):
         return round(self.coordinator.data.get("total", 0.0), 3)
+
 
 class StuartCO2Sensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator):

@@ -1,9 +1,12 @@
 from datetime import timedelta, datetime, UTC
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+
 from homeassistant.components.recorder.statistics import async_add_external_statistics, get_last_statistics
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
-from .const import LOGGER, DOMAIN
+
 from .api import StuartEnergyClient
+from .const import LOGGER, DOMAIN
+
 
 class StuartEnergyCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, client: StuartEnergyClient, scan_interval: int = 3):
@@ -34,7 +37,8 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
             if not segments:
                 continue
 
-            last_stats = get_last_statistics(self.hass, 1, statistic_id, True, {"last_reset", "max", "mean", "min", "state", "sum"})
+            last_stats = get_last_statistics(self.hass, 1, statistic_id, True,
+                                             {"last_reset", "max", "mean", "min", "state", "sum"})
             last_recorded_time = None
             if last_stats and statistic_id in last_stats:
                 raw = last_stats[statistic_id][0]["start"]
@@ -95,7 +99,8 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
                 if not segments:
                     return {"energy": data, "site": site_info, "total": 0.0}
 
-                last_stats = get_last_statistics(self.hass, 1, statistic_id, True, {"last_reset", "max", "mean", "min", "state", "sum"})
+                last_stats = get_last_statistics(self.hass, 1, statistic_id, True,
+                                                 {"last_reset", "max", "mean", "min", "state", "sum"})
                 last_recorded_time = None
                 if last_stats and statistic_id in last_stats:
                     raw = last_stats[statistic_id][0]["start"]
@@ -104,7 +109,8 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
                 last_segment_time = dt_util.parse_datetime(segments[-1]["dateTimeLocal"])
                 if last_recorded_time and last_segment_time <= last_recorded_time:
                     LOGGER.debug("No new energy segments to store.")
-                    return {"energy": data, "site": site_info, "total": sum(seg["energyGeneratedKwh"] for seg in segments)}
+                    return {"energy": data, "site": site_info,
+                            "total": sum(seg["energyGeneratedKwh"] for seg in segments)}
 
                 statistics = []
                 cumulative = 0.0

@@ -1,6 +1,8 @@
 import aiohttp
+
 from .auth import StuartAuth
 from .const import BASE_API_URL, LOGGER
+
 
 class StuartEnergyClient:
     def __init__(self, session: aiohttp.ClientSession, email: str, password: str, site_id: str):

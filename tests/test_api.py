@@ -1,6 +1,7 @@
-import pytest
 import aiohttp
+import pytest
 from aioresponses import aioresponses
+
 from custom_components.stuartev.api import StuartEnergyClient
 
 

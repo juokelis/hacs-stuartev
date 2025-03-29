@@ -1,8 +1,11 @@
 """Authentication towards Stuart Energy."""
 
-import aiohttp
 import time
+
+import aiohttp
+
 from .const import FIREBASE_AUTH_URL, FIREBASE_REFRESH_URL, API_KEY, LOGGER
+
 
 class StuartAuth:
     def __init__(self, session: aiohttp.ClientSession, email: str, password: str):

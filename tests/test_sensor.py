@@ -1,9 +1,11 @@
-import pytest
 import aiohttp
+import pytest
 from aioresponses import aioresponses
-from custom_components.stuartev.sensor import StuartEnergySensor
+
 from custom_components.stuartev.api import StuartEnergyClient
 from custom_components.stuartev.coordinator import StuartEnergyCoordinator
+from custom_components.stuartev.sensor import StuartEnergySensor
+
 
 @pytest.mark.asyncio
 async def test_sensor_update(hass):
