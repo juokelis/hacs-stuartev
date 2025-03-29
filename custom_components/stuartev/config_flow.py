@@ -15,6 +15,8 @@ class StuartEVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             email = user_input["email"]
             password = user_input["password"]
             site_id = user_input["site_id"]
+            history_days = user_input.get("history_days", 30)
+            scan_interval = user_input.get("scan_interval", 3)
 
             session = ClientSession()
             auth = StuartAuth(session, email, password)
@@ -23,7 +25,13 @@ class StuartEVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 token = await auth.authenticate()
                 await session.close()
                 if token:
-                    return self.async_create_entry(title="Stuart Energy", data=user_input)
+                    return self.async_create_entry(title="Stuart Energy", data={
+                        "email": email,
+                        "password": password,
+                        "site_id": site_id,
+                        "history_days": history_days,
+                        "scan_interval": scan_interval
+                    })
                 else:
                     errors["base"] = "invalid_auth"
             except Exception:
@@ -36,6 +44,8 @@ class StuartEVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required("email"): str,
                 vol.Required("password"): str,
                 vol.Required("site_id"): str,
+                vol.Optional("history_days", default=30): int,
+                vol.Optional("scan_interval", default=3): int,
             }),
             errors=errors,
         )
@@ -52,11 +62,23 @@ class StuartEVOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            old_days = self.config_entry.options.get("history_days", 30)
+            new_days = user_input.get("history_days", 30)
+            result = self.async_create_entry(title="", data=user_input)
+
+            if new_days != old_days:
+                async def trigger_import():
+                    coordinator = self.hass.data[DOMAIN][self.config_entry.entry_id]["coordinator"]
+                    await coordinator.import_historical_data(new_days)
+
+                self.hass.async_create_task(trigger_import())
+
+            return result
 
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
-                vol.Optional("scan_interval", default="1h"): str,
+                vol.Optional("scan_interval", default=3): int,
+                vol.Optional("history_days", default=30): int,
             })
         )

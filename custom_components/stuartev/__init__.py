@@ -1,6 +1,6 @@
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .auth import StuartAuth
 from .api import StuartEnergyClient
 from .coordinator import StuartEnergyCoordinator
@@ -8,13 +8,20 @@ from .const import DOMAIN
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     data = entry.data
+    options = entry.options
+
     email = data["email"]
     password = data["password"]
     site_id = data["site_id"]
+    history_days = options.get("history_days") if options else data.get("history_days", 30)
+    scan_interval = options.get("scan_interval") if options else data.get("scan_interval", 3)
 
-    session = hass.helpers.aiohttp_client.async_get_clientsession()
+    session = async_get_clientsession(hass)
     client = StuartEnergyClient(session, email, password, site_id)
-    coordinator = StuartEnergyCoordinator(hass, client)
+    coordinator = StuartEnergyCoordinator(hass, client, scan_interval=scan_interval)
+
+    # Import historical data on initial setup
+    await coordinator.import_historical_data(history_days)
 
     await coordinator.async_config_entry_first_refresh()
 
