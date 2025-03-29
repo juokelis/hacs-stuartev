@@ -3,17 +3,29 @@
     "step": {
       "user": {
         "title": "Configure Stuart Energy",
-        "description": "Connect to your Stuart Energy account.",
         "data": {
           "email": "Email",
           "password": "Password",
-          "site_id": "Site ID"
+          "site_id": "Site ID",
+          "scan_interval": "Scan interval (hours)",
+          "history_days": "Import historical data (days)"
         }
       }
     },
     "error": {
       "invalid_auth": "Invalid email or password",
       "cannot_connect": "Could not connect to Stuart Energy"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options",
+        "data": {
+          "scan_interval": "Scan interval (hours)",
+          "history_days": "Import historical data (days)"
+        }
+      }
     }
   }
 }
