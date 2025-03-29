@@ -34,7 +34,7 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
             if not segments:
                 continue
 
-            last_stats = get_last_statistics(self.hass, 1, statistic_id, include_sum=True)
+            last_stats = get_last_statistics(self.hass, 1, statistic_id, True, {"last_reset", "max", "mean", "min", "state", "sum"})
             last_recorded_time = None
             if last_stats and statistic_id in last_stats:
                 raw = last_stats[statistic_id][0]["start"]
@@ -95,7 +95,7 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
                 if not segments:
                     return {"energy": data, "site": site_info, "total": 0.0}
 
-                last_stats = get_last_statistics(self.hass, 1, statistic_id, include_sum=True)
+                last_stats = get_last_statistics(self.hass, 1, statistic_id, True, {"last_reset", "max", "mean", "min", "state", "sum"})
                 last_recorded_time = None
                 if last_stats and statistic_id in last_stats:
                     raw = last_stats[statistic_id][0]["start"]
