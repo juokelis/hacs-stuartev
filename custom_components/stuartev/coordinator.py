@@ -1,156 +1,188 @@
-from datetime import timedelta, datetime, UTC
+"""
+Coordinator for Stuart Energy integration.
 
-from homeassistant.components.recorder.statistics import async_add_external_statistics, get_last_statistics
+Handles data fetching and coordination for sensor updates and statistics import.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
+
+from homeassistant.components.recorder.statistics import async_add_external_statistics
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .api import StuartEnergyClient
-from .const import LOGGER, DOMAIN
+from .api import StuartEnergyApiClient, StuartEnergyApiClientCommunicationError
+from .const import DOMAIN, LOGGER, SCAN_INTERVAL_DEFAULT
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
 
 
 class StuartEnergyCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass, client: StuartEnergyClient, scan_interval: int = 3):
-        self.client = client
-        self.hass = hass
+    """Coordinator class for Stuart Energy data updates."""
 
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        """Initialize the coordinator."""
         super().__init__(
             hass,
             LOGGER,
-            name="Stuart Energy Data",
-            update_interval=timedelta(hours=scan_interval),
+            name=DOMAIN,
+            update_interval=timedelta(
+                hours=entry.data.get("scan_interval", SCAN_INTERVAL_DEFAULT)
+            ),
         )
+        self.entry = entry
+        self.hass = hass
+        self.api = StuartEnergyApiClient(
+            hass,
+            entry.data["email"],
+            entry.data["password"],
+            entry.data["site_id"],
+        )
+        self.last_processed_time: datetime | None = None
 
-    async def import_historical_data(self, days_back: int):
-        statistic_id = "sensor.stuart_energy_generated"
-        now = datetime.now(UTC)
-        total = 0.0
+    def _raise_update_failed_error(self, err: Exception) -> None:
+        """Raise an error update failed."""
+        message = "Failed to fetch data: " + str(err)
+        LOGGER.error(message)
+        raise UpdateFailed(message) from err
 
-        for day in range(days_back, 0, -1):
-            date_from = (now - timedelta(days=day)).replace(hour=0, minute=0, second=0, microsecond=0)
-            date_to = date_from + timedelta(days=1)
+    async def _async_update_data(self) -> dict[str, Any]:
+        """Fetch the latest energy data and site info."""
+        try:
+            return await self._fetch_data_with_retries()
+        except StuartEnergyApiClientCommunicationError as err:
+            self._raise_update_failed_error(err)
 
-            data = await self.client.async_get_energy_data(date_from.isoformat(), date_to.isoformat())
-            if not data or "energyGeneratedSegments" not in data:
-                continue
+        return {}
 
-            segments = data["energyGeneratedSegments"]
-            if not segments:
-                continue
+    async def _fetch_data_with_retries(self, retries: int = 3) -> dict[str, Any]:
+        """Fetch data with retries in case of temporary failures."""
+        for attempt in range(retries):
+            try:
+                return await self._fetch_data()
+            except StuartEnergyApiClientCommunicationError:
+                if attempt < retries - 1:
+                    LOGGER.warning(
+                        "Temporary failure, retrying... (%d/%d)", attempt + 1, retries
+                    )
+                    await asyncio.sleep(2**attempt)
+                else:
+                    raise
+        return {}
 
-            last_stats = get_last_statistics(self.hass, 1, statistic_id, True,
-                                             {"last_reset", "max", "mean", "min", "state", "sum"})
-            last_recorded_time = None
-            if last_stats and statistic_id in last_stats:
-                raw = last_stats[statistic_id][0]["start"]
-                last_recorded_time = datetime.fromtimestamp(raw, UTC) if isinstance(raw, float) else raw
+    async def _fetch_data(self) -> dict[str, Any]:
+        """Actual data fetching logic."""
+        now = dt_util.now()
+        yesterday = now - timedelta(days=1)
 
-            last_segment_time = dt_util.parse_datetime(segments[-1]["dateTimeLocal"])
-            if last_recorded_time and last_segment_time <= last_recorded_time:
-                continue
+        # Skip if we already processed yesterday
+        if (
+            self.last_processed_time
+            and self.last_processed_time.date() >= yesterday.date()
+        ):
+            LOGGER.debug("Data for yesterday already processed. Skipping API call.")
+            return self.data or {}
 
-            statistics = []
-            cumulative = 0.0
-            for seg in segments:
-                try:
-                    start = dt_util.parse_datetime(seg["dateTimeLocal"])
-                    value = float(seg["energyGeneratedKwh"])
-                    cumulative += value
-                    total += value
-                    statistics.append({
-                        "start": start,
-                        "state": value,
-                        "sum": cumulative
-                    })
-                except Exception as e:
-                    LOGGER.warning("Skipping invalid segment: %s", e)
+        energy_data = await self.api.async_get_energy_data(
+            date_from=yesterday.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            ).isoformat(),
+            date_to=now.isoformat(),
+            aggregate_type="QuarterHour",
+        )
+        site_info = await self.api.async_get_site_info()
 
-            if statistics:
-                async_add_external_statistics(
-                    self.hass,
-                    statistic_id,
-                    {
-                        "name": "Stuart Energy Generated",
-                        "source": DOMAIN,
-                        "statistic_id": statistic_id,
-                        "unit_of_measurement": "kWh"
-                    },
-                    statistics
+        total = energy_data.get("totalGeneratedKwh", 0.0)
+        co2 = energy_data.get("co2ReducedKg", 0.0)
+
+        updated = await self._store_statistics(energy_data, site_info)
+        if updated:
+            # Set last processed time to last segment timestamp
+            segments = energy_data.get("energyGeneratedSegments", [])
+            if segments:
+                last_segment_time = datetime.fromisoformat(
+                    segments[-1]["dateTimeLocal"]
+                ).replace(tzinfo=UTC)
+                self.last_processed_time = last_segment_time
+                LOGGER.info(
+                    "Stored %d new segments. Last segment time: %s",
+                    len(segments),
+                    last_segment_time.isoformat(),
                 )
 
-        return total
+        return {
+            "site": site_info,
+            "total": total,
+            "co2": co2,
+        }
 
-    async def _async_update_data(self):
-        try:
-            now = datetime.now(UTC)
-            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            yesterday = today_start - timedelta(days=1)
+    async def _store_statistics(
+        self, energy_data: dict[str, Any], site_info: dict[str, Any]
+    ) -> bool:
+        """Store external statistics from 15-minute interval data."""
+        if not (segments := energy_data.get("energyGeneratedSegments")):
+            LOGGER.warning("No energy segments found in data.")
+            return False
 
-            data = await self.client.async_get_energy_data(
-                date_from=yesterday.isoformat(),
-                date_to=now.isoformat()
+        new_stats = []
+        for segment in segments:
+            timestamp = datetime.fromisoformat(segment["dateTimeLocal"]).replace(
+                tzinfo=UTC
+            )
+            new_stats.append(
+                {
+                    "start": timestamp,
+                    "state": round(segment["energyGeneratedKwh"], 5),
+                    "sum": None,
+                }
             )
 
-            site_info = await self.client.async_get_site_info()
+        if new_stats:
+            site_id = site_info.get("id")
+            object_id = site_info.get("objectId")
+            stat_id = f"sensor.stuart_energy_{site_id}_{object_id}"
 
-            # Store 15-minute segments in long-term statistics database
-            statistic_id = "sensor.stuart_energy_generated"
-            if data and "energyGeneratedSegments" in data:
-                segments = data["energyGeneratedSegments"]
-                if not segments:
-                    return {"energy": data, "site": site_info, "total": 0.0}
+            async_add_external_statistics(
+                self.hass,
+                metadata={
+                    "has_mean": False,
+                    "has_sum": False,
+                    "name": f"{site_info.get('name', 'Stuart Site')} Energy Generated",
+                    "source": DOMAIN,
+                    "statistic_id": stat_id,
+                    "unit_of_measurement": "kWh",
+                },
+                statistics=new_stats,
+            )
+            LOGGER.debug(
+                "Submitted %d new statistics to recorder for site '%s' (%s).",
+                len(new_stats),
+                site_info.get("name"),
+                stat_id,
+            )
+            return True
 
-                last_stats = get_last_statistics(self.hass, 1, statistic_id, True,
-                                                 {"last_reset", "max", "mean", "min", "state", "sum"})
-                last_recorded_time = None
-                if last_stats and statistic_id in last_stats:
-                    raw = last_stats[statistic_id][0]["start"]
-                    last_recorded_time = datetime.fromtimestamp(raw, UTC) if isinstance(raw, float) else raw
+        LOGGER.info("No new statistics to store.")
+        return False
 
-                last_segment_time = dt_util.parse_datetime(segments[-1]["dateTimeLocal"])
-                if last_recorded_time and last_segment_time <= last_recorded_time:
-                    LOGGER.debug("No new energy segments to store.")
-                    return {"energy": data, "site": site_info,
-                            "total": sum(seg["energyGeneratedKwh"] for seg in segments)}
-
-                statistics = []
-                cumulative = 0.0
-                for seg in segments:
-                    try:
-                        start = dt_util.parse_datetime(seg["dateTimeLocal"])
-                        value = float(seg["energyGeneratedKwh"])
-                        cumulative += value
-                        statistics.append({
-                            "start": start,
-                            "state": value,
-                            "sum": cumulative
-                        })
-                    except Exception as e:
-                        LOGGER.warning("Skipping invalid segment: %s", e)
-
-                if statistics:
-                    async_add_external_statistics(
-                        self.hass,
-                        statistic_id,
-                        {
-                            "name": "Stuart Energy Generated",
-                            "source": DOMAIN,
-                            "statistic_id": statistic_id,
-                            "unit_of_measurement": "kWh"
-                        },
-                        statistics
-                    )
-
-                return {
-                    "energy": data,
-                    "site": site_info,
-                    "total": cumulative
-                }
-
-            return {
-                "energy": data,
-                "site": site_info,
-                "total": 0.0
-            }
-
-        except Exception as err:
-            raise UpdateFailed(f"Error updating Stuart data: {err}") from err
+    async def import_historical_data(self, days: int) -> None:
+        """Import historical statistics for the last N days."""
+        end = dt_util.now()
+        for i in range(days):
+            day = end - timedelta(days=i + 1)
+            energy_data = await self.api.async_get_energy_data(
+                date_from=day.replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                ).isoformat(),
+                date_to=day.replace(
+                    hour=23, minute=59, second=59, microsecond=0
+                ).isoformat(),
+                aggregate_type="QuarterHour",
+            )
+            site_info = await self.api.async_get_site_info()
+            await self._store_statistics(energy_data, site_info)

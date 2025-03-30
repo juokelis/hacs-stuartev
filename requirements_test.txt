@@ -1,4 +1,4 @@
 --requirement requirements.txt
 
-pytest
+pytest==8.3.5
 aioresponses
