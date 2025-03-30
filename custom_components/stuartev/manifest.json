@@ -5,6 +5,9 @@
     "@juokelis"
   ],
   "config_flow": true,
+  "dependencies": [
+    "recorder"
+  ],
   "documentation": "https://github.com/juokelis/hacs-stuartev",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/juokelis/hacs-stuartev/issues",
