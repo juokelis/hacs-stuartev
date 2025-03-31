@@ -120,8 +120,8 @@ class StuartEnergyApiClient:
         """
         url = f"{BASE_API_URL}/slink/sites/{self.site_id}/details"
         params = {
-            "dateFrom": date_from,
-            "dateTo": date_to,
+            "dateFromLocal": date_from,
+            "dateToLocal": date_to,
             "aggregateType": aggregate_type,
         }
         return await self._get(url, params)

@@ -91,9 +91,8 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
         energy_data = await self.api.async_get_energy_data(
             date_from=yesterday.replace(
                 hour=0, minute=0, second=0, microsecond=0
-            ).isoformat(),
-            date_to=now.isoformat(),
-            aggregate_type="QuarterHour",
+            ).strftime("%Y-%m-%dT%H:%M:%S"),
+            date_to=now.strftime("%Y-%m-%dT%H:%M:%S"),
         )
         site_info = await self.api.async_get_site_info()
 
@@ -178,11 +177,10 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
             energy_data = await self.api.async_get_energy_data(
                 date_from=day.replace(
                     hour=0, minute=0, second=0, microsecond=0
-                ).isoformat(),
+                ).strftime("%Y-%m-%dT%H:%M:%S"),
                 date_to=day.replace(
                     hour=23, minute=59, second=59, microsecond=0
-                ).isoformat(),
-                aggregate_type="QuarterHour",
+                ).strftime("%Y-%m-%dT%H:%M:%S"),
             )
             site_info = await self.api.async_get_site_info()
             await self._store_statistics(energy_data, site_info)
