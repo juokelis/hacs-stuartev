@@ -12,13 +12,15 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import aiohttp_client
 
-from .const import API_KEY, FIREBASE_AUTH_URL, FIREBASE_REFRESH_URL, LOGGER
+from .const import FIREBASE_AUTH_URL, FIREBASE_REFRESH_URL, LOGGER
 
 
 class StuartAuth:
     """Handle authentication with the Stuart Energy API."""
 
-    def __init__(self, hass: HomeAssistant, email: str, password: str) -> None:
+    def __init__(
+        self, hass: HomeAssistant, email: str, password: str, api_key: str
+    ) -> None:
         """
         Initialize the StuartAuth.
 
@@ -27,6 +29,7 @@ class StuartAuth:
         :param password: User password
         """
         self.session = aiohttp_client.async_get_clientsession(hass)
+        self.api_key = api_key
         self.email = email
         self.password = password
         self.token = None
@@ -46,7 +49,7 @@ class StuartAuth:
             "returnSecureToken": True,
         }
         async with self.session.post(
-            f"{FIREBASE_AUTH_URL}?key={API_KEY}", json=payload
+            f"{FIREBASE_AUTH_URL}?key={self.api_key}", json=payload
         ) as response:
             if response.status == HTTPStatus.OK:
                 data = await response.json()
@@ -73,7 +76,7 @@ class StuartAuth:
         LOGGER.info("Refreshing authentication token")
         payload = {"grant_type": "refresh_token", "refresh_token": self.refresh_token}
         async with self.session.post(
-            f"{FIREBASE_REFRESH_URL}?key={API_KEY}", json=payload
+            f"{FIREBASE_REFRESH_URL}?key={self.api_key}", json=payload
         ) as response:
             if response.status == HTTPStatus.OK:
                 data = await response.json()

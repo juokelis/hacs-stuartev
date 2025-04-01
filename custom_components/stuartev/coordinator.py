@@ -42,18 +42,20 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
             entry.data["email"],
             entry.data["password"],
             entry.data["site_id"],
+            entry.data["api_key"],
         )
         self.last_processed_time: datetime | None = None
         self.statistic_id: str | None = None
         self.site_info: dict[str, Any] = {}
 
-    def _generate_statistic_id(self, site_info: dict[str, Any]) -> str:
+    def _generate_statistic_id(self) -> str:
         """Generate a valid statistic_id from site details."""
-        site_id = site_info.get("id")
-        object_id = site_info.get("objectId")
+        site_id = self.site_info.get("id")
+        object_id = self.site_info.get("objectId")
         return f"{DOMAIN}:site_{site_id}_obj_{object_id}_energy"
 
-    def _raise_update_failed_error(self, err: Exception) -> None:
+    @staticmethod
+    def _raise_update_failed_error(err: Exception) -> None:
         """Raise an error update failed."""
         message = "Failed to fetch data: " + str(err)
         LOGGER.error(message)
@@ -62,7 +64,7 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
     async def initialize_site_info(self) -> None:
         """Fetch site info and generate statistic ID once."""
         self.site_info = await self.api.async_get_site_info()
-        self.statistic_id = self._generate_statistic_id(self.site_info)
+        self.statistic_id = self._generate_statistic_id()
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch the latest energy data and site info."""

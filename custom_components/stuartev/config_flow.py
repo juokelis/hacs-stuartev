@@ -14,6 +14,7 @@ from homeassistant.config_entries import (
     ConfigFlowResult,
     OptionsFlow,
 )
+from homeassistant.const import CONF_API_KEY
 from homeassistant.core import callback
 
 from . import DAYS_DEFAULT, DAYS_MAX
@@ -42,12 +43,13 @@ class StuartEVConfigFlow(ConfigFlow, domain=DOMAIN):
         if self._async_current_entries():
             return self.async_abort(reason="single_instance_allowed")
 
-        errors = {}
+        errors: dict[str, str] = {}
 
         if user_input is not None:
             email = user_input["email"].strip().lower()
             password = user_input["password"]
             site_id = user_input["site_id"]
+            api_key = user_input[CONF_API_KEY]
             history_days = user_input.get("history_days", DAYS_DEFAULT)
             scan_interval = user_input.get("scan_interval", SCAN_INTERVAL_DEFAULT)
 
@@ -57,7 +59,7 @@ class StuartEVConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["scan_interval"] = "invalid_range"
 
             if not errors:
-                auth = StuartAuth(self.hass, email, password)
+                auth = StuartAuth(self.hass, email, password, api_key)
 
                 try:
                     token = await auth.authenticate()
@@ -68,6 +70,7 @@ class StuartEVConfigFlow(ConfigFlow, domain=DOMAIN):
                                 "email": email,
                                 "password": password,
                                 "site_id": site_id,
+                                CONF_API_KEY: api_key,
                                 "history_days": history_days,
                                 "scan_interval": scan_interval,
                             },
@@ -88,6 +91,7 @@ class StuartEVConfigFlow(ConfigFlow, domain=DOMAIN):
                     vol.Required("email"): str,
                     vol.Required("password"): str,
                     vol.Required("site_id"): str,
+                    vol.Required(CONF_API_KEY): str,
                     vol.Optional("history_days", default=DAYS_DEFAULT): int,
                     vol.Optional("scan_interval", default=SCAN_INTERVAL_DEFAULT): int,
                 }
@@ -130,7 +134,9 @@ class StuartEVOptionsFlow(OptionsFlow):
         if user_input is not None:
             old_days = self.config_entry.options.get("history_days", DAYS_DEFAULT)
             new_days = user_input.get("history_days", DAYS_DEFAULT)
-            result = self.async_create_entry(title="", data=user_input)
+            result: ConfigFlowResult = self.async_create_entry(
+                title="", data=user_input
+            )
 
             if new_days != old_days:
 
