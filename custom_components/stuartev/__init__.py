@@ -11,7 +11,8 @@ https://github.com/juokelis/hacs-stuartev
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import DAYS_DEFAULT, DAYS_MAX, DOMAIN
+from .api import StuartEnergyApiClientCommunicationError
+from .const import DAYS_DEFAULT, DAYS_MAX, DOMAIN, LOGGER
 from .coordinator import StuartEnergyCoordinator
 
 
@@ -26,6 +27,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     data = entry.data
     options = entry.options
 
+    # Guard clause to prevent issues if config is incomplete
+    required_keys = ("email", "password", "site_id", "api_key")
+    if not all(k in data and data[k] for k in required_keys):
+        return False
+
     history_days = (
         options.get("history_days")
         if options
@@ -35,11 +41,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         history_days = DAYS_DEFAULT
 
     _coordinator = StuartEnergyCoordinator(hass, entry)
-    await _coordinator.initialize_site_info()
 
-    # Import historical data on initial setup
-    await _coordinator.import_historical_data(history_days)
-    await _coordinator.async_config_entry_first_refresh()
+    try:
+        await _coordinator.initialize_site_info()
+        await _coordinator.import_historical_data(history_days)
+        await _coordinator.async_config_entry_first_refresh()
+    except StuartEnergyApiClientCommunicationError as err:
+        LOGGER.exception(
+            "StuartEV setup failed due to API communication error: %s", err
+        )
+        return False
+    except ValueError as err:
+        LOGGER.exception("StuartEV setup failed due to invalid data: %s", err)
+        return False
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
         "coordinator": _coordinator,
