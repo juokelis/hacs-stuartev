@@ -35,10 +35,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         history_days = DAYS_DEFAULT
 
     _coordinator = StuartEnergyCoordinator(hass, entry)
+    await _coordinator.initialize_site_info()
 
     # Import historical data on initial setup
     await _coordinator.import_historical_data(history_days)
-
     await _coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {

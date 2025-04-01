@@ -7,15 +7,15 @@ Handles data fetching and coordination for sensor updates and statistics import.
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from homeassistant.components.recorder.statistics import async_add_external_statistics
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
 from .api import StuartEnergyApiClient, StuartEnergyApiClientCommunicationError
 from .const import DOMAIN, LOGGER, SCAN_INTERVAL_DEFAULT
+from .importer import StuartEnergyImporter
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -44,12 +44,25 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
             entry.data["site_id"],
         )
         self.last_processed_time: datetime | None = None
+        self.statistic_id: str | None = None
+        self.site_info: dict[str, Any] = {}
+
+    def _generate_statistic_id(self, site_info: dict[str, Any]) -> str:
+        """Generate a valid statistic_id from site details."""
+        site_id = site_info.get("id")
+        object_id = site_info.get("objectId")
+        return f"{DOMAIN}:site_{site_id}_obj_{object_id}_energy"
 
     def _raise_update_failed_error(self, err: Exception) -> None:
         """Raise an error update failed."""
         message = "Failed to fetch data: " + str(err)
         LOGGER.error(message)
         raise UpdateFailed(message) from err
+
+    async def initialize_site_info(self) -> None:
+        """Fetch site info and generate statistic ID once."""
+        self.site_info = await self.api.async_get_site_info()
+        self.statistic_id = self._generate_statistic_id(self.site_info)
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch the latest energy data and site info."""
@@ -94,84 +107,32 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
             ).strftime("%Y-%m-%dT%H:%M:%S"),
             date_to=now.strftime("%Y-%m-%dT%H:%M:%S"),
         )
-        site_info = await self.api.async_get_site_info()
 
         total = energy_data.get("totalGeneratedKwh", 0.0)
         co2 = energy_data.get("co2ReducedKg", 0.0)
+        segments = energy_data.get("energyGeneratedSegments", [])
 
-        updated = await self._store_statistics(energy_data, site_info)
-        if updated:
-            # Set last processed time to last segment timestamp
-            segments = energy_data.get("energyGeneratedSegments", [])
-            if segments:
-                last_segment_time = datetime.fromisoformat(
-                    segments[-1]["dateTimeLocal"]
-                ).replace(tzinfo=UTC)
-                self.last_processed_time = last_segment_time
-                LOGGER.info(
-                    "Stored %d new segments. Last segment time: %s",
-                    len(segments),
-                    last_segment_time.isoformat(),
-                )
+        importer = StuartEnergyImporter(self.hass, self.site_info, self.statistic_id)
+        last_time = await importer.import_segments(segments)
+        if last_time:
+            self.last_processed_time = last_time
+            LOGGER.info(
+                "Stored %d new segments. Last segment time: %s",
+                len(segments),
+                last_time.isoformat(),
+            )
 
         return {
-            "site": site_info,
+            "site": self.site_info,
             "total": total,
             "co2": co2,
         }
 
-    async def _store_statistics(
-        self, energy_data: dict[str, Any], site_info: dict[str, Any]
-    ) -> bool:
-        """Store external statistics from 15-minute interval data."""
-        if not (segments := energy_data.get("energyGeneratedSegments")):
-            LOGGER.warning("No energy segments found in data.")
-            return False
-
-        new_stats = []
-        for segment in segments:
-            timestamp = datetime.fromisoformat(segment["dateTimeLocal"]).replace(
-                tzinfo=UTC
-            )
-            new_stats.append(
-                {
-                    "start": timestamp,
-                    "state": round(segment["energyGeneratedKwh"], 5),
-                    "sum": None,
-                }
-            )
-
-        if new_stats:
-            site_id = site_info.get("id")
-            object_id = site_info.get("objectId")
-            stat_id = f"sensor.stuart_energy_{site_id}_{object_id}"
-
-            async_add_external_statistics(
-                self.hass,
-                metadata={
-                    "has_mean": False,
-                    "has_sum": False,
-                    "name": f"{site_info.get('name', 'Stuart Site')} Energy Generated",
-                    "source": DOMAIN,
-                    "statistic_id": stat_id,
-                    "unit_of_measurement": "kWh",
-                },
-                statistics=new_stats,
-            )
-            LOGGER.debug(
-                "Submitted %d new statistics to recorder for site '%s' (%s).",
-                len(new_stats),
-                site_info.get("name"),
-                stat_id,
-            )
-            return True
-
-        LOGGER.info("No new statistics to store.")
-        return False
-
     async def import_historical_data(self, days: int) -> None:
         """Import historical statistics for the last N days."""
         end = dt_util.now()
+        importer = StuartEnergyImporter(self.hass, self.site_info, self.statistic_id)
+
         for i in range(days):
             day = end - timedelta(days=i + 1)
             energy_data = await self.api.async_get_energy_data(
@@ -182,5 +143,6 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
                     hour=23, minute=59, second=59, microsecond=0
                 ).strftime("%Y-%m-%dT%H:%M:%S"),
             )
-            site_info = await self.api.async_get_site_info()
-            await self._store_statistics(energy_data, site_info)
+            await importer.import_segments(
+                energy_data.get("energyGeneratedSegments", [])
+            )
