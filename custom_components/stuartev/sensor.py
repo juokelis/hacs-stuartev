@@ -36,7 +36,7 @@ async def async_setup_entry(
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     sensors = [
         StuartEnergySensor(coordinator),
-        StuartCO2Sensor(coordinator),
+        StuartCO2ReducedSensor(coordinator),
     ]
     async_add_entities(sensors)
 
@@ -73,33 +73,36 @@ class StuartEnergySensor(CoordinatorEntity, SensorEntity):
         return round(self.coordinator.data.get("total", 0.0), 3)
 
 
-class StuartCO2Sensor(CoordinatorEntity, SensorEntity):
-    """Sensor for displaying CO2 reduction by Stuart Energy."""
+class StuartCO2ReducedSensor(CoordinatorEntity, SensorEntity):
+    """Sensor for CO2 reduction (kg of CO2 avoided) by Stuart Energy."""
 
     def __init__(self, coordinator: DataUpdateCoordinator) -> None:
         """
-        Initialize the StuartCO2Sensor.
+        Initialize the StuartCO2ReducedSensor.
 
         :param coordinator: Data update coordinator
         """
         super().__init__(coordinator)
         self._attr_unique_id = "stuart_co2_reduced"
         self._attr_native_unit_of_measurement = "kg"
-        self._attr_device_class = SensorDeviceClass.CO2
-        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_state_class = SensorStateClass.TOTAL_INCREASING
 
     @property
-    def name(self) -> str:
-        """Return the name of the sensor."""
-        return f"{self.site_name} CO2 Reduced"
+    def name(self) -> str | None:
+        """
+        Return the name of the sensor.
 
-    @property
-    def site_name(self) -> str:
-        """Return the site name."""
+        :return: Name of the sensor
+        """
         site = self.coordinator.data.get("site")
-        return site.get("name") if site else "Stuart Site"
+        site_name = site.get("name") if site else "Stuart Site"
+        return f"{site_name} CO₂ Reduced"
 
     @property
-    def native_value(self) -> StateType:
-        """Return the current value of the sensor."""
+    def native_value(self) -> float | None:
+        """
+        Return the current value of the sensor.
+
+        :return: Current value of CO2 reduction
+        """
         return round(self.coordinator.data.get("co2", 0.0), 3)

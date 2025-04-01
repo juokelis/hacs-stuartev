@@ -82,6 +82,11 @@ class StuartEnergyApiClient:
             async with self.session.get(
                 url, headers=headers, params=params
             ) as response:
+                LOGGER.warning("Request URL: %s", str(response.url))
+                LOGGER.warning("Response status: %s", response.status)
+                raw_data = await response.text()
+                LOGGER.warning("Raw response body: %s", raw_data)
+
                 if response.status == HTTPStatus.TOO_MANY_REQUESTS:
                     retry_after = int(response.headers.get("Retry-After", 1))
                     LOGGER.warning(
