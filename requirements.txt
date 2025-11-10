@@ -1,7 +1,7 @@
 colorlog==6.10.1
 homeassistant==2025.11.0b0
 pip>=21.3.1
-ruff==0.14.2
+ruff==0.14.4
 
 aiohttp~=3.13.1
 async-timeout~=5.0.1
