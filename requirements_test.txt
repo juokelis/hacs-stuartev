@@ -1,4 +1,4 @@
 --requirement requirements.txt
 
-pytest==9.0.1
+pytest==9.0.2
 aioresponses
