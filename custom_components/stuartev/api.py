@@ -7,13 +7,15 @@ with the Stuart Energy API, including fetching energy data and site information.
 
 import asyncio
 from http import HTTPStatus
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from homeassistant.core import HomeAssistant
 from homeassistant.helpers import aiohttp_client
 
 from .auth import StuartAuth
 from .const import BASE_API_URL, LOGGER
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 
 class StuartEnergyApiClientError(Exception):
