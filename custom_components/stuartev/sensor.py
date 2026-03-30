@@ -22,13 +22,14 @@ from .const import DOMAIN
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
     from homeassistant.helpers.typing import StateType
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
-    async_add_entities: callable,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
     """
     Set up Stuart Energy sensors from a config entry.

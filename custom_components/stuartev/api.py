@@ -54,7 +54,7 @@ class StuartEnergyApiClient:
         :param hass: HomeAssistant instance
         :param email: User email
         :param password: User password
-        :param api_key: Firebase API Key
+        :param api_key: API Key
         :param site_id: Site ID
         """
         self.session = aiohttp_client.async_get_clientsession(hass)
@@ -85,10 +85,10 @@ class StuartEnergyApiClient:
             async with self.session.get(
                 url, headers=headers, params=params
             ) as response:
-                LOGGER.warning("Request URL: %s", str(response.url))
-                LOGGER.warning("Response status: %s", response.status)
+                LOGGER.debug("Request URL: %s", str(response.url))
+                LOGGER.debug("Response status: %s", response.status)
                 raw_data = await response.text()
-                LOGGER.warning("Raw response body: %s", raw_data)
+                LOGGER.debug("Raw response body: %s", raw_data)
 
                 if response.status == HTTPStatus.TOO_MANY_REQUESTS:
                     retry_after = int(response.headers.get("Retry-After", 1))

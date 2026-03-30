@@ -88,9 +88,9 @@ class StuartEVConfigFlow(ConfigFlow, domain=DOMAIN):
                     errors["base"] = "invalid_auth"
                 except StuartEnergyApiClientCommunicationError:
                     errors["base"] = "cannot_connect"
-                except (ValueError, RuntimeError) as e:
+                except (ValueError, RuntimeError) as err:
                     errors["base"] = "unknown"
-                    LOGGER.error("Unexpected exception: %s", e)
+                    LOGGER.error("Unexpected exception: %s", err)
 
         return self.async_show_form(
             step_id="user",

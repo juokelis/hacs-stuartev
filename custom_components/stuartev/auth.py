@@ -34,7 +34,7 @@ class StuartAuth:
         :param hass: HomeAssistant instance
         :param email: User email
         :param password: User password
-        :param api_key: Firebase API Key
+        :param api_key: API Key
         :param session: Optional aiohttp client session
         """
         self.session = session or aiohttp_client.async_get_clientsession(hass)
