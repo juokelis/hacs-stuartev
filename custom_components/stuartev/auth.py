@@ -7,12 +7,14 @@ and refreshing tokens using Firebase authentication.
 
 import time
 from http import HTTPStatus
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from homeassistant.core import HomeAssistant
 from homeassistant.helpers import aiohttp_client
 
 from .const import FIREBASE_AUTH_URL, FIREBASE_REFRESH_URL, LOGGER
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 
 class StuartAuth:

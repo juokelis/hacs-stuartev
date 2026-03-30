@@ -8,12 +8,15 @@ For more details about this integration, please refer to
 https://github.com/juokelis/hacs-stuartev
 """
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from typing import TYPE_CHECKING
 
 from .api import StuartEnergyApiClientCommunicationError
 from .const import DAYS_DEFAULT, DAYS_MAX, DOMAIN, LOGGER
 from .coordinator import StuartEnergyCoordinator
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
