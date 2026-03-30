@@ -54,7 +54,12 @@ class StuartAuth:
                 expires_in = int(data.get("expiresIn", 3600))
                 self.token_expires = time.time() + expires_in - 60
                 return self.token
-            LOGGER.error("Failed to authenticate: %s", await response.text())
+            response_text = await response.text()
+            LOGGER.debug("Authentication payload: %s", payload)
+            LOGGER.debug("Authentication response status: %s", response.status)
+            LOGGER.debug("Authentication response headers: %s", response.headers)
+            LOGGER.debug("Authentication response body: %s", response_text)
+            LOGGER.error("Failed to authenticate: %s", response_text)
             return None
 
     async def refresh_auth_token(self) -> Any | None:
