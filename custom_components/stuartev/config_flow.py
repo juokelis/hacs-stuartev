@@ -14,7 +14,7 @@ from homeassistant.config_entries import (
     ConfigFlowResult,
     OptionsFlow,
 )
-from homeassistant.const import CONF_API_KEY
+from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import callback
 
 from . import DAYS_DEFAULT, DAYS_MAX
@@ -46,10 +46,9 @@ class StuartEVConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            email = user_input["email"].strip().lower()
-            password = user_input["password"]
+            email = user_input[CONF_EMAIL].strip().lower()
+            password = user_input[CONF_PASSWORD]
             site_id = user_input["site_id"]
-            api_key = user_input[CONF_API_KEY]
             history_days = user_input.get("history_days", DAYS_DEFAULT)
             scan_interval = user_input.get("scan_interval", SCAN_INTERVAL_DEFAULT)
 
@@ -59,7 +58,7 @@ class StuartEVConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["scan_interval"] = "invalid_range"
 
             if not errors:
-                auth = StuartAuth(self.hass, email, password, api_key)
+                auth = StuartAuth(self.hass, email, password)
 
                 try:
                     token = await auth.authenticate()
@@ -67,10 +66,9 @@ class StuartEVConfigFlow(ConfigFlow, domain=DOMAIN):
                         return self.async_create_entry(
                             title="Stuart Energy",
                             data={
-                                "email": email,
-                                "password": password,
+                                CONF_EMAIL: email,
+                                CONF_PASSWORD: password,
                                 "site_id": site_id,
-                                CONF_API_KEY: api_key,
                                 "history_days": history_days,
                                 "scan_interval": scan_interval,
                             },
@@ -88,10 +86,9 @@ class StuartEVConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required("email"): str,
-                    vol.Required("password"): str,
+                    vol.Required(CONF_EMAIL): str,
+                    vol.Required(CONF_PASSWORD): str,
                     vol.Required("site_id"): str,
-                    vol.Required(CONF_API_KEY): str,
                     vol.Optional("history_days", default=DAYS_DEFAULT): int,
                     vol.Optional("scan_interval", default=SCAN_INTERVAL_DEFAULT): int,
                 }

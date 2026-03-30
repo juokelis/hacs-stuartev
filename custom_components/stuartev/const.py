@@ -14,11 +14,8 @@ DAYS_MAX = 365
 SCAN_INTERVAL_DEFAULT = 3
 SCAN_INTERVAL_MAX = 24
 
-FIREBASE_AUTH_URL = (
-    "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
-)
-FIREBASE_REFRESH_URL = "https://securetoken.googleapis.com/v1/token"
-
 BASE_API_URL = "https://api.stuart.energy/api"
+AUTH_API_URL = f"{BASE_API_URL}/slink/auth/login"
+REFRESH_API_URL = f"{BASE_API_URL}/slink/auth/refresh"
 
 LOGGER: logging.Logger = logging.getLogger(DOMAIN)
