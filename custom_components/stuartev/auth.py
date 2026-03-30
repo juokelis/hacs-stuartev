@@ -20,17 +20,27 @@ if TYPE_CHECKING:
 class StuartAuth:
     """Handle authentication with the Stuart Energy API."""
 
-    def __init__(self, hass: HomeAssistant, email: str, password: str) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        email: str,
+        password: str,
+        api_key: str,
+        session: aiohttp_client.ClientSession | None = None,
+    ) -> None:
         """
         Initialize the StuartAuth.
 
         :param hass: HomeAssistant instance
         :param email: User email
         :param password: User password
+        :param api_key: Firebase API Key
+        :param session: Optional aiohttp client session
         """
-        self.session = aiohttp_client.async_get_clientsession(hass)
+        self.session = session or aiohttp_client.async_get_clientsession(hass)
         self.email = email
         self.password = password
+        self.api_key = api_key
         self.token = None
         self.refresh_token = None
         self.token_expires = 0  # Epoch timestamp
@@ -45,8 +55,17 @@ class StuartAuth:
         payload = {
             "email": self.email,
             "password": self.password,
+            "returnSecureToken": True,
         }
-        async with self.session.post(AUTH_API_URL, json=payload) as response:
+        headers = {
+            "Content-Type": "application/json",
+            "Referer": "https://app.stuart.energy/",
+            "Origin": "https://app.stuart.energy",
+        }
+        params = {"key": self.api_key}
+        async with self.session.post(
+            AUTH_API_URL, json=payload, headers=headers, params=params
+        ) as response:
             if response.status == HTTPStatus.OK:
                 data = await response.json()
                 self.token = data.get("token") or data.get("idToken")
@@ -73,13 +92,24 @@ class StuartAuth:
             return await self.authenticate()
 
         LOGGER.info("Refreshing authentication token")
-        payload = {"refreshToken": self.refresh_token}
-        async with self.session.post(REFRESH_API_URL, json=payload) as response:
+        payload = {
+            "grant_type": "refresh_token",
+            "refresh_token": self.refresh_token,
+        }
+        headers = {
+            "Content-Type": "application/json",
+            "Referer": "https://app.stuart.energy/",
+            "Origin": "https://app.stuart.energy",
+        }
+        params = {"key": self.api_key}
+        async with self.session.post(
+            REFRESH_API_URL, json=payload, headers=headers, params=params
+        ) as response:
             if response.status == HTTPStatus.OK:
                 data = await response.json()
-                self.token = data.get("token") or data.get("idToken")
-                self.refresh_token = data.get("refreshToken")
-                expires_in = int(data.get("expiresIn", 3600))
+                self.token = data.get("id_token")
+                self.refresh_token = data.get("refresh_token")
+                expires_in = int(data.get("expires_in", 3600))
                 self.token_expires = time.time() + expires_in - 60
                 return self.token
             LOGGER.error("Failed to refresh token: %s", await response.text())

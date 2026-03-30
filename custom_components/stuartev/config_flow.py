@@ -16,6 +16,7 @@ from homeassistant.config_entries import (
 )
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import callback
+from homeassistant.helpers import aiohttp_client
 
 from . import DAYS_DEFAULT, DAYS_MAX
 from .api import (
@@ -23,7 +24,13 @@ from .api import (
     StuartEnergyApiClientCommunicationError,
 )
 from .auth import StuartAuth
-from .const import DOMAIN, LOGGER, SCAN_INTERVAL_DEFAULT, SCAN_INTERVAL_MAX
+from .const import (
+    CONF_API_KEY,
+    DOMAIN,
+    LOGGER,
+    SCAN_INTERVAL_DEFAULT,
+    SCAN_INTERVAL_MAX,
+)
 
 
 class StuartEVConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -48,6 +55,7 @@ class StuartEVConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             email = user_input[CONF_EMAIL].strip().lower()
             password = user_input[CONF_PASSWORD]
+            api_key = user_input[CONF_API_KEY].strip()
             site_id = user_input["site_id"]
             history_days = user_input.get("history_days", DAYS_DEFAULT)
             scan_interval = user_input.get("scan_interval", SCAN_INTERVAL_DEFAULT)
@@ -58,7 +66,8 @@ class StuartEVConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["scan_interval"] = "invalid_range"
 
             if not errors:
-                auth = StuartAuth(self.hass, email, password)
+                session = aiohttp_client.async_get_clientsession(self.hass)
+                auth = StuartAuth(self.hass, email, password, api_key, session)
 
                 try:
                     token = await auth.authenticate()
@@ -68,6 +77,7 @@ class StuartEVConfigFlow(ConfigFlow, domain=DOMAIN):
                             data={
                                 CONF_EMAIL: email,
                                 CONF_PASSWORD: password,
+                                CONF_API_KEY: api_key,
                                 "site_id": site_id,
                                 "history_days": history_days,
                                 "scan_interval": scan_interval,
@@ -88,6 +98,7 @@ class StuartEVConfigFlow(ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required(CONF_EMAIL): str,
                     vol.Required(CONF_PASSWORD): str,
+                    vol.Required(CONF_API_KEY): str,
                     vol.Required("site_id"): str,
                     vol.Optional("history_days", default=DAYS_DEFAULT): int,
                     vol.Optional("scan_interval", default=SCAN_INTERVAL_DEFAULT): int,

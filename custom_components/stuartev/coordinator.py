@@ -15,7 +15,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .api import StuartEnergyApiClient, StuartEnergyApiClientCommunicationError
-from .const import DOMAIN, LOGGER, SCAN_INTERVAL_DEFAULT
+from .const import CONF_API_KEY, DOMAIN, LOGGER, SCAN_INTERVAL_DEFAULT
 from .importer import StuartEnergyImporter
 
 if TYPE_CHECKING:
@@ -42,6 +42,7 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
             hass,
             entry.data[CONF_EMAIL],
             entry.data[CONF_PASSWORD],
+            entry.data[CONF_API_KEY],
             entry.data["site_id"],
         )
         self.last_processed_time: datetime | None = None

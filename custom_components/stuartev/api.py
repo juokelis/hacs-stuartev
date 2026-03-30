@@ -46,7 +46,7 @@ class StuartEnergyApiClient:
     """Client for interacting with the Stuart Energy API."""
 
     def __init__(
-        self, hass: HomeAssistant, email: str, password: str, site_id: str
+        self, hass: HomeAssistant, email: str, password: str, api_key: str, site_id: str
     ) -> None:
         """
         Initialize the StuartEnergyApiClient.
@@ -54,11 +54,12 @@ class StuartEnergyApiClient:
         :param hass: HomeAssistant instance
         :param email: User email
         :param password: User password
+        :param api_key: Firebase API Key
         :param site_id: Site ID
         """
         self.session = aiohttp_client.async_get_clientsession(hass)
         self.site_id = site_id
-        self.auth = StuartAuth(hass, email, password)
+        self.auth = StuartAuth(hass, email, password, api_key, self.session)
 
     def _raise_invalid_site_error(self) -> None:
         """Raise an error if the site ID is invalid."""

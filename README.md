@@ -1,46 +1,55 @@
-# Notice
+# Stuart Energy for Home Assistant
 
-The component and platforms in this repository are not meant to be used by a
-user, but as a "blueprint" that custom component developers can build
-upon, to make more awesome stuff.
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
 
-HAVE FUN! 😎
+Stuart Energy integration for Home Assistant allows you to monitor energy generation from your dedicated part of a solar park.
 
-## Why?
+## Features
 
-This is simple, by having custom_components look (README + structure) the same
-it is easier for developers to help each other and for users to start using them.
+- **Energy Generation**: Track how much energy was generated from your solar park part.
+- **Granular Data**: Provides hourly (or 15-minute period) data.
+- **CO₂ Reduction**: Monitor the estimated CO₂ emissions avoided.
+- **Historical Data**: Automatically imports historical data during setup or via options.
+- **Energy Dashboard**: Compatible with the Home Assistant Energy Dashboard.
 
-If you are a developer, and you want to add things to this "blueprint" that you think more
-developers will have use for, please open a PR to add it :)
+## Installation
 
-## What?
+### HACS (Recommended)
 
-This repository contains multiple files, here is an overview:
+1. Open **HACS** in your Home Assistant instance.
+2. Click on the three dots in the top right corner and select **Custom repositories**.
+3. Add `https://github.com/juokelis/hacs-stuartev` as an **Integration**.
+4. Search for **Stuart Energy** and click **Download**.
+5. Restart Home Assistant.
 
-| File                                        | Purpose                                                                                                               |  Documentation                                                                                                                 |
-|---------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
-| `.devcontainer.json`                        | Used for development/testing with Visual Studio Code.                                                                 | [Documentation](https://code.visualstudio.com/docs/remote/containers)                                                          |
-| `.github/ISSUE_TEMPLATE/*.yml`              | Templates for the issue tracker                                                                                       | [Documentation](https://help.github.com/en/github/building-a-strong-community/configuring-issue-templates-for-your-repository) |
-| `custom_components/integration_blueprint/*` | Integration files, this is where everything happens.                                                                  | [Documentation](https://developers.home-assistant.io/docs/creating_component_index)                                            |
-| `CONTRIBUTING.md`                           | Guidelines on how to contribute.                                                                                      | [Documentation](https://help.github.com/en/github/building-a-strong-community/setting-guidelines-for-repository-contributors)  |
-| `LICENSE`                                   | The license file for the project.                                                                                     | [Documentation](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/licensing-a-repository)          |
-| `README.md`                                 | The file you are reading now, should contain info about the integration, installation and configuration instructions. | [Documentation](https://help.github.com/en/github/writing-on-github/basic-writing-and-formatting-syntax)                       |
-| `requirements.txt`                          | Python packages used for development/lint/testing this integration.                                                   | [Documentation](https://pip.pypa.io/en/stable/user_guide/#requirements-files)                                                  |
+### Manual
 
-## How?
+1. Download the latest release.
+2. Copy the `custom_components/stuartev` folder into your `config/custom_components` directory.
+3. Restart Home Assistant.
 
-1. Create a new repository in GitHub, using this repository as a template by clicking the "Use this template" button in the GitHub UI.
-2. Open your new repository in Visual Studio Code devcontainer (Preferably with the "`Dev Containers: Clone Repository in Named Container Volume...`" option).
-3. Rename all instances of the `integration_blueprint` to `custom_components/<your_integration_domain>` (e.g. `custom_components/awesome_integration`).
-4. Rename all instances of the `Integration Blueprint` to `<Your Integration Name>` (e.g. `Awesome Integration`).
-5. Run the `scripts/develop` to start HA and test out your new integration.
+## Configuration
 
-## Next steps
+1. In Home Assistant, go to **Settings** -> **Devices & Services**.
+2. Click **+ Add Integration** and search for **Stuart Energy**.
+3. Enter your Stuart Energy account details:
+   - **Email**: Your account email address.
+   - **Password**: Your account password.
+   - **Site ID**: The ID of your solar park site.
+   - **Scan interval**: How often to fetch new data (in hours).
+   - **Import historical data**: Number of days of historical data to import.
 
-These are some next steps you may want to look into:
-- Add tests to your integration, [`pytest-homeassistant-custom-component`](https://github.com/MatthewFlamm/pytest-homeassistant-custom-component) can help you get started.
-- Add brand images (logo/icon) to https://github.com/home-assistant/brands.
-- Create your first release.
-- Share your integration on the [Home Assistant Forum](https://community.home-assistant.io/).
-- Submit your integration to [HACS](https://hacs.xyz/docs/publish/start).
+## Data Granularity
+
+The integration fetches data directly from the Stuart Energy API. While it presents hourly totals in the Energy Dashboard, it processes 15-minute segments if available to ensure high accuracy.
+
+## Energy Dashboard
+
+To add your solar park to the Energy Dashboard:
+1. Go to **Settings** -> **Dashboards** -> **Energy**.
+2. Under **Solar production**, click **Add solar production**.
+3. Select your `Stuart Site Energy Generated` sensor.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

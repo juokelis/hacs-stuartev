@@ -6,6 +6,7 @@
         "data": {
           "email": "Email",
           "password": "Password",
+          "api_key": "Firebase API Key",
           "site_id": "Site ID",
           "scan_interval": "Scan interval (hours)",
           "history_days": "Import historical data (days)"
