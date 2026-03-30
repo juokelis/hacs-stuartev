@@ -10,6 +10,8 @@ https://github.com/juokelis/hacs-stuartev
 
 from typing import TYPE_CHECKING
 
+from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
+
 from .api import StuartEnergyApiClientCommunicationError
 from .const import DAYS_DEFAULT, DAYS_MAX, DOMAIN, LOGGER
 from .coordinator import StuartEnergyCoordinator
@@ -31,7 +33,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     options = entry.options
 
     # Guard clause to prevent issues if config is incomplete
-    required_keys = ("email", "password", "site_id", "api_key")
+    required_keys = (CONF_EMAIL, CONF_PASSWORD, "site_id")
     if not all(k in data and data[k] for k in required_keys):
         return False
 

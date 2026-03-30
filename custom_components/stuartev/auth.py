@@ -2,7 +2,7 @@
 Authentication module for Stuart Energy.
 
 This module handles authentication with the Stuart Energy API, including obtaining
-and refreshing tokens using Firebase authentication.
+and refreshing tokens using their authentication service.
 """
 
 import time
@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers import aiohttp_client
 
-from .const import FIREBASE_AUTH_URL, FIREBASE_REFRESH_URL, LOGGER
+from .const import AUTH_API_URL, LOGGER, REFRESH_API_URL
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -20,9 +20,7 @@ if TYPE_CHECKING:
 class StuartAuth:
     """Handle authentication with the Stuart Energy API."""
 
-    def __init__(
-        self, hass: HomeAssistant, email: str, password: str, api_key: str
-    ) -> None:
+    def __init__(self, hass: HomeAssistant, email: str, password: str) -> None:
         """
         Initialize the StuartAuth.
 
@@ -31,7 +29,6 @@ class StuartAuth:
         :param password: User password
         """
         self.session = aiohttp_client.async_get_clientsession(hass)
-        self.api_key = api_key
         self.email = email
         self.password = password
         self.token = None
@@ -40,27 +37,22 @@ class StuartAuth:
 
     async def authenticate(self) -> Any | None:
         """
-        Authenticate with the Firebase API and obtain tokens.
+        Authenticate with the Stuart Energy API and obtain tokens.
 
         :return: Authentication token if successful, None otherwise
         """
-        LOGGER.info("Authenticating with Firebase API")
+        LOGGER.info("Authenticating with Stuart Energy API")
         payload = {
             "email": self.email,
             "password": self.password,
-            "returnSecureToken": True,
         }
-        async with self.session.post(
-            f"{FIREBASE_AUTH_URL}?key={self.api_key}", json=payload
-        ) as response:
+        async with self.session.post(AUTH_API_URL, json=payload) as response:
             if response.status == HTTPStatus.OK:
                 data = await response.json()
-                self.token = data.get("idToken")
+                self.token = data.get("token") or data.get("idToken")
                 self.refresh_token = data.get("refreshToken")
-                expires_in = int(data.get("expiresIn", 3600))  # usually 3600 seconds
-                self.token_expires = (
-                    time.time() + expires_in - 60
-                )  # buffer before expiry
+                expires_in = int(data.get("expiresIn", 3600))
+                self.token_expires = time.time() + expires_in - 60
                 return self.token
             LOGGER.error("Failed to authenticate: %s", await response.text())
             return None
@@ -76,15 +68,13 @@ class StuartAuth:
             return await self.authenticate()
 
         LOGGER.info("Refreshing authentication token")
-        payload = {"grant_type": "refresh_token", "refresh_token": self.refresh_token}
-        async with self.session.post(
-            f"{FIREBASE_REFRESH_URL}?key={self.api_key}", json=payload
-        ) as response:
+        payload = {"refreshToken": self.refresh_token}
+        async with self.session.post(REFRESH_API_URL, json=payload) as response:
             if response.status == HTTPStatus.OK:
                 data = await response.json()
-                self.token = data.get("id_token")
-                self.refresh_token = data.get("refresh_token")
-                expires_in = int(data.get("expires_in", 3600))
+                self.token = data.get("token") or data.get("idToken")
+                self.refresh_token = data.get("refreshToken")
+                expires_in = int(data.get("expiresIn", 3600))
                 self.token_expires = time.time() + expires_in - 60
                 return self.token
             LOGGER.error("Failed to refresh token: %s", await response.text())

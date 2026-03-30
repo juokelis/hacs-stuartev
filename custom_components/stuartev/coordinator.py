@@ -10,6 +10,7 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -39,10 +40,9 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
         self.hass = hass
         self.api = StuartEnergyApiClient(
             hass,
-            entry.data["email"],
-            entry.data["password"],
+            entry.data[CONF_EMAIL],
+            entry.data[CONF_PASSWORD],
             entry.data["site_id"],
-            entry.data["api_key"],
         )
         self.last_processed_time: datetime | None = None
         self.statistic_id: str | None = None
