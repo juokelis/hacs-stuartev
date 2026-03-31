@@ -52,7 +52,8 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
     def _generate_statistic_id(self) -> str:
         """Generate a valid statistic_id from site details."""
         site_id = self.site_info.get("id")
-        object_id = self.site_info.get("objectId")
+        solar_park_attrs = self.site_info.get("solarParkAttributes", {})
+        object_id = solar_park_attrs.get("objectId")
         return f"{DOMAIN}:site_{site_id}_obj_{object_id}_energy"
 
     @staticmethod
@@ -65,7 +66,9 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
     async def initialize_site_info(self) -> None:
         """Fetch site info and generate statistic ID once."""
         self.site_info = await self.api.async_get_site_info()
+        LOGGER.debug("Site info received: %s", self.site_info)
         self.statistic_id = self._generate_statistic_id()
+        LOGGER.info("Generated statistic_id: %s", self.statistic_id)
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch the latest energy data and site info."""

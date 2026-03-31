@@ -82,7 +82,12 @@ class StuartEnergyApiClient:
         }
 
         try:
-            LOGGER.debug("Making API request - URL: %s, Params: %s, Site ID: %s", url, params, self.site_id)
+            LOGGER.debug(
+                "Making API request - URL: %s, Params: %s, Site ID: %s",
+                url,
+                params,
+                self.site_id,
+            )
             async with self.session.get(
                 url, headers=headers, params=params
             ) as response:
