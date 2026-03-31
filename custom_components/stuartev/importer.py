@@ -44,7 +44,7 @@ class StuartEnergyImporter:
         self.statistic_id = statistic_id
 
     async def import_segments(self, segments: list[dict[str, Any]]) -> datetime | None:
-        """Convert 15-minute segments into external statistics and push to recorder."""
+        """Convert energy segments into hourly statistics and push to recorder."""
         if not segments:
             LOGGER.warning("No energy segments available to import.")
             return None

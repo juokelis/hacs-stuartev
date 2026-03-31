@@ -1,0 +1,6 @@
+# Development dependencies for local testing and linting
+# These are NOT required for the integration to run in Home Assistant
+
+homeassistant==2026.4.0b5
+ruff==0.15.8
+colorlog==6.10.1

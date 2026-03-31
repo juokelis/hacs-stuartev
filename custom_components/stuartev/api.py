@@ -82,6 +82,7 @@ class StuartEnergyApiClient:
         }
 
         try:
+            LOGGER.debug("Making API request - URL: %s, Params: %s, Site ID: %s", url, params, self.site_id)
             async with self.session.get(
                 url, headers=headers, params=params
             ) as response:
@@ -127,7 +128,7 @@ class StuartEnergyApiClient:
         :param aggregate_type: Aggregation type (default is "Hour")
         :return: JSON response with energy data
         """
-        url = f"{BASE_API_URL}/slink/sites/{self.site_id}/details"
+        url = f"{BASE_API_URL}/slink/sites/{self.site_id}/solar-stats"
         params = {
             "dateFromLocal": date_from,
             "dateToLocal": date_to,
