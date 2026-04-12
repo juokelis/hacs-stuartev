@@ -46,6 +46,7 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
             entry.data["site_id"],
         )
         self.last_processed_time: datetime | None = None
+        self.last_segments_signature: tuple[tuple[str, float], ...] | None = None
         self.statistic_id: str | None = None
         self.site_info: dict[str, Any] = {}
 
@@ -62,6 +63,19 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
         message = "Failed to fetch data: " + str(err)
         LOGGER.error(message)
         raise UpdateFailed(message) from err
+
+    @staticmethod
+    def _build_segments_signature(
+        segments: list[dict[str, Any]],
+    ) -> tuple[tuple[str, float], ...]:
+        """Build a stable signature for the fetched segment payload."""
+        return tuple(
+            (
+                str(segment.get("dateTimeLocal", "")),
+                round(float(segment.get("energyGeneratedKwh", 0.0)), 5),
+            )
+            for segment in segments
+        )
 
     async def initialize_site_info(self) -> None:
         """Fetch site info and generate statistic ID once."""
@@ -117,17 +131,30 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
         total = energy_data.get("totalGeneratedKwh", 0.0)
         co2 = energy_data.get("co2ReducedKg", 0.0)
         segments = energy_data.get("energyGeneratedSegments", [])
+        segments_signature = self._build_segments_signature(segments)
+
+        if segments_signature == self.last_segments_signature:
+            LOGGER.debug(
+                "Skipping statistics import because Stuart payload did not change."
+            )
+            return {
+                "site": self.site_info,
+                "total": total,
+                "co2": co2,
+            }
 
         importer = StuartEnergyImporter(self.hass, self.site_info, self.statistic_id)
         last_time = await importer.import_segments(segments)
         if last_time:
             self.last_processed_time = last_time
+            self.last_segments_signature = segments_signature
             LOGGER.info(
                 "Stored %d new segments. Last segment time: %s",
                 len(segments),
                 last_time.isoformat(),
             )
         else:
+            self.last_segments_signature = segments_signature
             LOGGER.debug(
                 "No valid segments were imported for %s -> %s",
                 date_from,
