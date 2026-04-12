@@ -98,20 +98,20 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
         """Actual data fetching logic."""
         now = dt_util.now()
         yesterday = now - timedelta(days=1)
+        date_from = yesterday.replace(
+            hour=0, minute=0, second=0, microsecond=0
+        ).strftime("%Y-%m-%dT%H:%M:%S")
+        date_to = now.strftime("%Y-%m-%dT%H:%M:%S")
 
-        # Skip if we already processed yesterday
-        if (
-            self.last_processed_time
-            and self.last_processed_time.date() >= yesterday.date()
-        ):
-            LOGGER.debug("Data for yesterday already processed. Skipping API call.")
-            return self.data or {}
+        LOGGER.debug(
+            "Fetching Stuart Energy data from %s to %s",
+            date_from,
+            date_to,
+        )
 
         energy_data = await self.api.async_get_energy_data(
-            date_from=yesterday.replace(
-                hour=0, minute=0, second=0, microsecond=0
-            ).strftime("%Y-%m-%dT%H:%M:%S"),
-            date_to=now.strftime("%Y-%m-%dT%H:%M:%S"),
+            date_from=date_from,
+            date_to=date_to,
         )
 
         total = energy_data.get("totalGeneratedKwh", 0.0)
@@ -126,6 +126,12 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
                 "Stored %d new segments. Last segment time: %s",
                 len(segments),
                 last_time.isoformat(),
+            )
+        else:
+            LOGGER.debug(
+                "No valid segments were imported for %s -> %s",
+                date_from,
+                date_to,
             )
 
         return {

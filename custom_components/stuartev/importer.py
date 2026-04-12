@@ -7,12 +7,23 @@ Module handles the import of energy statistics from Stuart Energy into Home Assi
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import timedelta
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
-from homeassistant.components.recorder.models import StatisticMetaData
-from homeassistant.components.recorder.statistics import async_add_external_statistics
+from homeassistant.components.recorder import get_instance
+from homeassistant.components.recorder.models import (
+    StatisticMeanType,
+    StatisticMetaData,
+)
+from homeassistant.components.recorder.statistics import (
+    async_add_external_statistics,
+    get_last_statistics,
+    statistics_during_period,
+)
 from homeassistant.const import UnitOfEnergy
 from homeassistant.util import dt as dt_util
+from homeassistant.util.unit_conversion import EnergyConverter
 
 from .const import DOMAIN, LOGGER
 
@@ -67,20 +78,26 @@ class StuartEnergyImporter:
             LOGGER.info("No valid hourly data aggregated from segments.")
             return None
 
+        first_hour = min(hourly_data)
+        cumulative_sum = await self._async_get_starting_sum(first_hour)
+
         statistics_list: list[StatisticData] = []
         for hour_start, total_kwh in sorted(hourly_data.items()):
+            cumulative_sum += total_kwh
             stat: StatisticData = {
                 "start": hour_start,
                 "state": total_kwh,
+                "sum": cumulative_sum,
             }
             statistics_list.append(stat)
 
         metadata = StatisticMetaData(
-            has_mean=False,
-            has_sum=False,
+            mean_type=StatisticMeanType.NONE,
+            has_sum=True,
             name=f"{self.site_info.get('name', 'Stuart Site')} Energy Generated",
             source=DOMAIN,
             statistic_id=self.statistic_id,
+            unit_class=EnergyConverter.UNIT_CLASS,
             unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         )
 
@@ -93,3 +110,44 @@ class StuartEnergyImporter:
         )
 
         return statistics_list[-1]["start"] if statistics_list else None
+
+    async def _async_get_starting_sum(self, start_time: datetime) -> float:
+        """Get the last recorder sum before the import window starts."""
+        window_start = start_time - timedelta(hours=1)
+        current_stats = await get_instance(self.hass).async_add_executor_job(
+            statistics_during_period,
+            self.hass,
+            window_start,
+            window_start + timedelta(seconds=1),
+            {self.statistic_id},
+            "hour",
+            None,
+            {"sum"},
+        )
+
+        if self.statistic_id in current_stats:
+            statistic_sum = current_stats[self.statistic_id][0]["sum"]
+            if isinstance(statistic_sum, float):
+                return statistic_sum
+
+        last_stat = await get_instance(self.hass).async_add_executor_job(
+            partial(
+                get_last_statistics,
+                self.hass,
+                1,
+                self.statistic_id,
+                convert_units=True,
+                types={"sum"},
+            )
+        )
+        if (
+            last_stat
+            and self.statistic_id in last_stat
+            and last_stat[self.statistic_id]
+            and last_stat[self.statistic_id][0]["start"] < start_time.timestamp()
+        ):
+            statistic_sum = last_stat[self.statistic_id][0]["sum"]
+            if isinstance(statistic_sum, float):
+                return statistic_sum
+
+        return 0.0
