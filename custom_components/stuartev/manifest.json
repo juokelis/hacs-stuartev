@@ -11,5 +11,5 @@
   "documentation": "https://github.com/juokelis/hacs-stuartev",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/juokelis/hacs-stuartev/issues",
-  "version": "0.1.0"
+  "version": "1.0.7"
 }
