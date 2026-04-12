@@ -125,10 +125,10 @@ class StuartEnergyImporter:
             {"sum"},
         )
 
-        if self.statistic_id in current_stats:
-            statistic_sum = current_stats[self.statistic_id][0]["sum"]
-            if isinstance(statistic_sum, float):
-                return statistic_sum
+        if current_stat_rows := current_stats.get(self.statistic_id):
+            statistic_sum = current_stat_rows[0].get("sum")
+            if isinstance(statistic_sum, int | float):
+                return float(statistic_sum)
 
         last_stat = await get_instance(self.hass).async_add_executor_job(
             partial(
@@ -146,8 +146,8 @@ class StuartEnergyImporter:
             and last_stat[self.statistic_id]
             and last_stat[self.statistic_id][0]["start"] < start_time.timestamp()
         ):
-            statistic_sum = last_stat[self.statistic_id][0]["sum"]
-            if isinstance(statistic_sum, float):
-                return statistic_sum
+            statistic_sum = last_stat[self.statistic_id][0].get("sum")
+            if isinstance(statistic_sum, int | float):
+                return float(statistic_sum)
 
         return 0.0

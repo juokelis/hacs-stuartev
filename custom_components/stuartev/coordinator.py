@@ -33,7 +33,10 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
             LOGGER,
             name=DOMAIN,
             update_interval=timedelta(
-                hours=entry.data.get("scan_interval", SCAN_INTERVAL_DEFAULT)
+                hours=entry.options.get(
+                    "scan_interval",
+                    entry.data.get("scan_interval", SCAN_INTERVAL_DEFAULT),
+                )
             ),
         )
         self.entry = entry
@@ -172,8 +175,8 @@ class StuartEnergyCoordinator(DataUpdateCoordinator):
         end = dt_util.now()
         importer = StuartEnergyImporter(self.hass, self.site_info, self.statistic_id)
 
-        for i in range(days):
-            day = end - timedelta(days=i + 1)
+        for days_ago in range(days, 0, -1):
+            day = end - timedelta(days=days_ago)
             energy_data = await self.api.async_get_energy_data(
                 date_from=day.replace(
                     hour=0, minute=0, second=0, microsecond=0
