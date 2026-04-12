@@ -1,0 +1,125 @@
+name: Version Sync & Release
+
+on:
+  push:
+    paths:
+      - 'custom_components/stuartev/manifest.json'
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-version:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from manifest
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' custom_components/stuartev/manifest.json)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "📦 Detected version: v${VERSION}"
+
+      - name: Check if tag exists
+        id: tag_check
+        run: |
+          git fetch --tags
+          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+            echo "⚠️  Tag v${{ steps.version.outputs.version }} already exists"
+          else
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
+            echo "✅ Tag v${{ steps.version.outputs.version }} will be created"
+          fi
+
+      - name: Create and push tag
+        if: steps.tag_check.outputs.tag_exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ steps.version.outputs.version }}" \
+            -m "Release v${{ steps.version.outputs.version }}" \
+            -m "Stuart Energy integration for Home Assistant"
+          git push origin "v${{ steps.version.outputs.version }}"
+          echo "🏷️  Tag created and pushed: v${{ steps.version.outputs.version }}"
+
+      - name: Generate changelog
+        if: steps.tag_check.outputs.tag_exists == 'false'
+        id: changelog
+        run: |
+          # Get commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --reverse)
+          else
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)" --reverse)
+          fi
+          
+          # Store in output
+          {
+            echo "changelog<<EOF"
+            echo "$COMMITS"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        if: steps.tag_check.outputs.tag_exists == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Release v${{ steps.version.outputs.version }}
+          body: |
+            ## 🚀 Version ${{ steps.version.outputs.version }}
+            
+            Stuart Energy custom component for Home Assistant
+            
+            ### 📝 Changes
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ### 📦 Installation
+            
+            #### Via HACS
+            1. Open HACS
+            2. Go to Integrations
+            3. Search for "Stuart Energy"
+            4. Install the latest version
+            
+            #### Manual
+            Copy the `custom_components/stuartev` directory to your Home Assistant `custom_components` directory.
+            
+            ### 🔗 Links
+            - [GitHub Repository](https://github.com/juokelis/hacs-stuartev)
+            - [Documentation](https://github.com/juokelis/hacs-stuartev#readme)
+            - [Issues](https://github.com/juokelis/hacs-stuartev/issues)
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Comment on commit
+        if: steps.tag_check.outputs.tag_exists == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'refs/tags/v${{ steps.version.outputs.version }}',
+              sha: context.sha
+            }).catch(err => {
+              if (err.status === 422) {
+                console.log('Tag already exists');
+              } else {
+                throw err;
+              }
+            });
