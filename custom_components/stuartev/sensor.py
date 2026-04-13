@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
-    SensorStateClass,
 )
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
@@ -59,7 +58,6 @@ class StuartEnergySensor(CoordinatorEntity, SensorEntity):
         self._attr_unique_id = "stuart_energy_generated"
         self._attr_native_unit_of_measurement = "kWh"
         self._attr_device_class = SensorDeviceClass.ENERGY
-        self._attr_state_class = SensorStateClass.TOTAL_INCREASING
 
     @property
     def name(self) -> str:
@@ -90,7 +88,6 @@ class StuartCO2ReducedSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._attr_unique_id = "stuart_co2_reduced"
         self._attr_native_unit_of_measurement = "kg"
-        self._attr_state_class = SensorStateClass.TOTAL_INCREASING
 
     @property
     def name(self) -> str | None:

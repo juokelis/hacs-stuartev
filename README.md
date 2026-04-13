@@ -16,11 +16,15 @@ Stuart Energy integration for Home Assistant allows you to monitor energy genera
 
 ### HACS (Recommended)
 
-1. Open **HACS** in your Home Assistant instance.
-2. Click on the three dots in the top right corner and select **Custom repositories**.
-3. Add `https://github.com/juokelis/hacs-stuartev` as an **Integration**.
-4. Search for **Stuart Energy** and click **Download**.
-5. Restart Home Assistant.
+1. Open **HACS** in Home Assistant.
+2. Select the three-dot menu in the top-right corner.
+3. Choose **Custom repositories**.
+4. Add repository URL `https://github.com/juokelis/hacs-stuartev`.
+5. Set the category to **Integration**.
+6. Select **Add**.
+7. Search for **Stuart Energy** in HACS.
+8. Open the integration page and select **Download**.
+9. Restart Home Assistant.
 
 ### Manual
 
