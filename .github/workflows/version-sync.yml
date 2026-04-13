@@ -53,22 +53,42 @@ jobs:
           git push origin "v${{ steps.version.outputs.version }}"
           echo "🏷️  Tag created and pushed: v${{ steps.version.outputs.version }}"
 
-      - name: Generate changelog
+      - name: Generate changelog from commits
         if: steps.tag_check.outputs.tag_exists == 'false'
         id: changelog
         run: |
           # Get commits since last tag
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
           if [ -z "$LAST_TAG" ]; then
-            COMMITS=$(git log --pretty=format:"- %s (%h)" --reverse)
+            # No previous tags, get all commits
+            COMMIT_LOG=$(git log --pretty=format:"%h - %s (%an)" --reverse)
           else
-            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)" --reverse)
+            # Get commits since last tag
+            COMMIT_LOG=$(git log ${LAST_TAG}..HEAD --pretty=format:"%h - %s (%an)" --reverse)
           fi
           
-          # Store in output
+          # Parse commits and group by type
+          FEATURES=""
+          FIXES=""
+          OTHER=""
+          
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^[a-f0-9]+-\ feat ]]; then
+              FEATURES+="- $(echo "$line" | sed 's/^[a-f0-9]*\ -\ //')"$'\n'
+            elif [[ "$line" =~ ^[a-f0-9]+-\ fix ]]; then
+              FIXES+="- $(echo "$line" | sed 's/^[a-f0-9]*\ -\ //')"$'\n'
+            else
+              OTHER+="- $line"$'\n'
+            fi
+          done <<< "$COMMIT_LOG"
+          
+          # Build formatted changelog
           {
             echo "changelog<<EOF"
-            echo "$COMMITS"
+            [ -n "$FEATURES" ] && echo "### ✨ Features" && echo "$FEATURES"
+            [ -n "$FIXES" ] && echo "### 🐛 Fixes" && echo "$FIXES"
+            [ -n "$OTHER" ] && echo "### 📝 Other Changes" && echo "$OTHER"
             echo "EOF"
           } >> $GITHUB_OUTPUT
 
