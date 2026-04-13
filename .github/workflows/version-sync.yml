@@ -61,34 +61,39 @@ jobs:
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           
           if [ -z "$LAST_TAG" ]; then
-            # No previous tags, get all commits
-            COMMIT_LOG=$(git log --pretty=format:"%h - %s (%an)" --reverse)
+            # No previous tags - get all commits excluding merge commits
+            COMMIT_LINES=$(git log --pretty=format:"%h - %s" --no-merges --reverse)
           else
-            # Get commits since last tag
-            COMMIT_LOG=$(git log ${LAST_TAG}..HEAD --pretty=format:"%h - %s (%an)" --reverse)
+            # Get commits since last tag, excluding merge commits
+            COMMIT_LINES=$(git log ${LAST_TAG}..HEAD --pretty=format:"%h - %s" --no-merges --reverse)
           fi
           
-          # Parse commits and group by type
-          FEATURES=""
-          FIXES=""
-          OTHER=""
+          # Build changelog by parsing commit prefixes
+          CHANGELOG=""
           
-          while IFS= read -r line; do
-            if [[ "$line" =~ ^[a-f0-9]+-\ feat ]]; then
-              FEATURES+="- $(echo "$line" | sed 's/^[a-f0-9]*\ -\ //')"$'\n'
-            elif [[ "$line" =~ ^[a-f0-9]+-\ fix ]]; then
-              FIXES+="- $(echo "$line" | sed 's/^[a-f0-9]*\ -\ //')"$'\n'
-            else
-              OTHER+="- $line"$'\n'
-            fi
-          done <<< "$COMMIT_LOG"
+          # Extract and categorize commits
+          FEATURES=$(echo "$COMMIT_LINES" | grep -i "^[a-f0-9]* - feat\|feature\|add\|new" | sed 's/^[a-f0-9]* - /- /' || true)
+          FIXES=$(echo "$COMMIT_LINES" | grep -i "^[a-f0-9]* - fix\|bug\|hotfix" | sed 's/^[a-f0-9]* - /- /' || true)
+          IMPROVEMENTS=$(echo "$COMMIT_LINES" | grep -i "^[a-f0-9]* - improve\|refactor\|perf\|optimize" | sed 's/^[a-f0-9]* - /- /' || true)
+          DOCS=$(echo "$COMMIT_LINES" | grep -i "^[a-f0-9]* - doc\|readme" | sed 's/^[a-f0-9]* - /- /' || true)
+          OTHER=$(echo "$COMMIT_LINES" | grep -vi "^[a-f0-9]* - feat\|feature\|add\|new\|fix\|bug\|hotfix\|improve\|refactor\|perf\|optimize\|doc\|readme" | sed 's/^[a-f0-9]* - /- /' || true)
           
-          # Build formatted changelog
+          # Construct changelog with sections
+          [ -n "$FEATURES" ] && CHANGELOG+=$'### ✨ Features\n'"$FEATURES"$'\n\n'
+          [ -n "$FIXES" ] && CHANGELOG+=$'### 🐛 Fixes\n'"$FIXES"$'\n\n'
+          [ -n "$IMPROVEMENTS" ] && CHANGELOG+=$'### 🚀 Improvements\n'"$IMPROVEMENTS"$'\n\n'
+          [ -n "$DOCS" ] && CHANGELOG+=$'### 📚 Documentation\n'"$DOCS"$'\n\n'
+          [ -n "$OTHER" ] && CHANGELOG+=$'### 📝 Other Changes\n'"$OTHER"$'\n\n'
+          
+          # Default if no commits found
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="No changes documented."
+          fi
+          
+          # Output changelog
           {
             echo "changelog<<EOF"
-            [ -n "$FEATURES" ] && echo "### ✨ Features" && echo "$FEATURES"
-            [ -n "$FIXES" ] && echo "### 🐛 Fixes" && echo "$FIXES"
-            [ -n "$OTHER" ] && echo "### 📝 Other Changes" && echo "$OTHER"
+            echo "$CHANGELOG"
             echo "EOF"
           } >> $GITHUB_OUTPUT
 
